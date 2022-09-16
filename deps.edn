@@ -1,0 +1,8 @@
+{:deps {org.clojure/clojure {:mvn/version "1.11.1"}}
+ 
+ :aliases  {:build {:extra-paths ["src" "resources"]
+                    :deps {io.github.clojure/tools.build {:git/tag "v0.8.2" :git/sha "ba1a2bf"}
+                           :ns-default build}}
+            :dev {:extra-paths ["resources" "src"]
+                  :extra-deps {de.ptb.gitlab1/libcdb {:local/root "../libcdb"}
+                               macroz/tangle {:mvn/version "0.2.2"}}}}}
