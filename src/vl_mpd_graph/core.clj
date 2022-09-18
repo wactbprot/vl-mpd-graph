@@ -18,6 +18,14 @@
 
 (defn flattenv [v] (into [] (flatten v)))
 
+(defn add-br [s]
+  (string/join " "
+   (mapv (fn [s i]
+           (if (and (pos? i) (zero? (mod i 4)))
+             (str s "<br/>")
+             s))
+         (string/split s #"\s") (range))))
+
 (defn post-edge [v]
   (->> v
        (filterv some?)
@@ -35,36 +43,95 @@
 
 (defn prefix [group]
   (cond
-    (:Group group) "prime"
+    (and
+     (:Group group)
+     (:Condition group)) "defins_prime"
+    (and
+     (:Group group)
+     (:Title group)) "cont_prime"
+    
     (:Condition group) "defins"
     (:Title group) "cont"))
 
 (defn id [group ndx idx jdx]
   (keyword (string/join "_" [(prefix group) ndx idx jdx]))) 
 
+(defn safe-str [s]
+  (-> s
+      (string/replace #"&" "&#38;")
+      (string/replace #"<" "&#60;")
+      (string/replace #">" "&#62;")))
+
+(defn map->table [m]
+    (into [:TABLE {:BORDER 0}]
+          (mapv (fn [[k v]]
+                  [:TR
+                   [:TD {:BORDER 1} (safe-str (name k)) ]
+                   [:TD {:BORDER 1} (safe-str (str v))]])
+                m)))
+  
 (defn task-label [{:keys [TaskName Replace Use]}]
-  [:i TaskName])
-
-(defn group-label [{:keys [Title Description] }]
   [:TABLE {:BORDER 0}
-   [:TR [:TD "Title"] [:TD {:BORDER 1} Title]]
-   [:TR [:TD "Description"] [:TD {:BORDER 1} Description]]])
+   [:TR
+    [:TD {:BGCOLOR "lemonchiffon2"} "TaskName"]
+    [:TD {:BGCOLOR "lemonchiffon2"} [:b TaskName]]]
+   (when Replace
+     [:TR
+      [:TD {:BGCOLOR "lemonchiffon2"} "Replace"]
+      [:TD (map->table Replace)]])
+   (when Use
+     [:TR
+      [:TD {:BGCOLOR "lemonchiffon2"} "Use"]
+      [:TD  (map->table Use)]])])
 
-(defn group-node [group task ndx idx jdx]
+(defn defins-label  [{:keys [DefinitionClass ShortDescr Condition]}]
+  [:TABLE {:BORDER 0}
+   [:TR
+    [:TD [:b "DefinitionClass"]]
+    [:TD {:BORDER 1} (safe-str DefinitionClass)]]
+   [:TR
+    [:TD "Description"]
+    [:TD {:BORDER 1} (add-newlines (safe-str ShortDescr))]]])
+
+(defn cont-label [{:keys [Title Description]}]
+  [:TABLE {:BORDER 0}
+   [:TR
+    [:TD [:b "Title"]]
+    [:TD {:BORDER 1} (safe-str Title)]]
+   [:TR
+    [:TD "Description"]
+    [:TD {:BORDER 1} (add-newlines (safe-str Description))]]])
+
+
+(defn cont-node  [group task ndx idx jdx]
   {:id (id (assoc group :Group :prime) ndx idx jdx)
    :color "white"
    :style "filled"
    :fontcolor "white"
-   :fillcolor "gray20"
+   :fillcolor "dodgerblue4"
    :shape :box
-   :label (group-label group)})
+   :label (cont-label group)})
 
+(defn defins-node  [group task ndx idx jdx]
+  {:id (id (assoc group :Group :prime) ndx idx jdx)
+   :color "white"
+   :style "filled"
+   :fontcolor "white"
+   :fillcolor "darkslateblue"
+   :shape :box
+   :label (defins-label group)})
+
+(defn group-node [{:keys [Title DefinitionClass] :as group} task ndx idx jdx]
+  (cond
+    (string? Title) (cont-node group task ndx idx jdx)
+    (string? DefinitionClass) (defins-node group task ndx idx jdx)))
+  
 (defn task-node [group task ndx idx jdx]
   {:id (id group  ndx idx jdx)
    :color "black"
    :shape :box
    :style "filled"
-   :fillcolor "gray95"
+   :fillcolor "lemonchiffon"
    :label (task-label task)})
 
 (defn nodes [group task ndx idx jdx]
@@ -85,8 +152,15 @@
               :node->descriptor (fn [n] (when-not (keyword? n) n))}
         mpd (get-mpd id)
         cont (-> mpd :Mp :Container)
-        defis (-> mpd :Mp :Definitions)
+        defins (-> mpd :Mp :Definitions)
         cont-nodes (walk-definition cont nodes)
         cont-edges (post-edge (walk-definition cont edges))
-        dot (tangle/graph->dot cont-nodes cont-edges conf)]
-    (io/copy (tangle/dot->image dot "png") (io/file (str id ".png")))))
+        defins-nodes (walk-definition defins  nodes)
+        defins-edges (post-edge (walk-definition defins edges))
+        cont-dot (tangle/graph->dot cont-nodes cont-edges  conf)
+        defins-dot (tangle/graph->dot defins-nodes defins-edges  conf)
+        ]
+    (io/copy (tangle/dot->image cont-dot "png")
+             (io/file (str id "-container.png")))
+    (io/copy (tangle/dot->image defins-dot "png")
+             (io/file (str id "-definitions.png")))))
