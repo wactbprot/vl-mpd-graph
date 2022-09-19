@@ -5,7 +5,6 @@
             [clojure.string :as string]
             [clojure.java.io :as io]))
 
-
 (defn get-mpd [id]
   (->> {:prot "http",
         :host "localhost",
@@ -49,7 +48,6 @@
     (and
      (:Group group)
      (:Title group)) "cont_prime"
-    
     (:Condition group) "defins"
     (:Title group) "cont"))
 
@@ -84,6 +82,12 @@
       [:TD {:BGCOLOR "lemonchiffon2"} "Use"]
       [:TD  (map->table Use)]])])
 
+(defn display-cond [v]
+  (into [:TD]
+        (mapv (fn [{:keys [ExchangePath Methode Value]}]  
+                (string/join " " ["<br/>" ExchangePath Methode Value "<br/>"]))
+              v)))
+
 (defn defins-label  [{:keys [DefinitionClass ShortDescr Condition]}]
   [:TABLE {:BORDER 0}
    [:TR
@@ -91,7 +95,10 @@
     [:TD {:BORDER 1} (safe-str DefinitionClass)]]
    [:TR
     [:TD "Description"]
-    [:TD {:BORDER 1} (add-newlines (safe-str ShortDescr))]]])
+    [:TD {:BORDER 1} (add-br (safe-str ShortDescr))]]
+   [:TR
+    [:TD "Conditions"]
+    (display-cond Condition)]])
 
 (defn cont-label [{:keys [Title Description]}]
   [:TABLE {:BORDER 0}
@@ -100,7 +107,7 @@
     [:TD {:BORDER 1} (safe-str Title)]]
    [:TR
     [:TD "Description"]
-    [:TD {:BORDER 1} (add-newlines (safe-str Description))]]])
+    [:TD {:BORDER 1} (add-br (safe-str Description))]]])
 
 
 (defn cont-node  [group task ndx idx jdx]
@@ -147,8 +154,11 @@
     {:from (id group ndx (dec idx) 0)
      :to (id group ndx idx jdx)}))
 
+
+
 (defn id->image [id]
-  (let [conf {:node->id (fn [n] (if (keyword? n) (name n) (:id n)))
+  (let [conf {:directed? true
+              :node->id (fn [n] (if (keyword? n) (name n) (:id n)))
               :node->descriptor (fn [n] (when-not (keyword? n) n))}
         mpd (get-mpd id)
         cont (-> mpd :Mp :Container)
@@ -157,10 +167,7 @@
         cont-edges (post-edge (walk-definition cont edges))
         defins-nodes (walk-definition defins  nodes)
         defins-edges (post-edge (walk-definition defins edges))
-        cont-dot (tangle/graph->dot cont-nodes cont-edges  conf)
-        defins-dot (tangle/graph->dot defins-nodes defins-edges  conf)
-        ]
-    (io/copy (tangle/dot->image cont-dot "png")
-             (io/file (str id "-container.png")))
-    (io/copy (tangle/dot->image defins-dot "png")
-             (io/file (str id "-definitions.png")))))
+        dot (tangle/graph->dot (into defins-nodes (reverse cont-nodes))
+                               (into defins-edges cont-edges ) conf)]
+    (io/copy (tangle/dot->image (string/replace dot #"rankdir=TP" "rankdir=LR")  "png") (io/file (str id ".png")))))
+
