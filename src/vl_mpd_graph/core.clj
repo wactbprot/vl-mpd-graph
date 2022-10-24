@@ -148,7 +148,7 @@
     [(task-node group task ndx idx jdx)]))
 
 (defn edges [group task ndx idx jdx]
-  (if (and (zero? idx) (zero? jdx))
+  (if (and (zero? idx))
     {:from (id (assoc group :Group :prime) ndx 0 0)
      :to (id group ndx idx jdx)}
     {:from (id group ndx (dec idx) 0)
@@ -169,5 +169,7 @@
         defins-edges (post-edge (walk-definition defins edges))
         dot (tangle/graph->dot (into defins-nodes (reverse cont-nodes))
                                (into defins-edges cont-edges ) conf)]
-    (io/copy (tangle/dot->image (string/replace dot #"rankdir=TP" "rankdir=LR")  "png") (io/file (str id ".png")))))
+    (io/copy (tangle/dot->image  dot  "pdf") (io/file (str id ".pdf")))))
 
+(comment
+  (string/replace dot #"rankdir=TP" "rankdir=LR"))
